@@ -9,6 +9,8 @@
 #include <shellapi.h>
 #include <windowsx.h>
 
+#include "KanaLayout.h"
+
 
 static constexpr wchar_t kClassName[] = L"WinScreenKeyboard";
 static constexpr wchar_t kTitle[] = L"Screen Keyboard";
@@ -23,6 +25,7 @@ static constexpr float kMaxHeightRatio = 0.4f;
 static constexpr float kGapRatio = 0.06f;
 static constexpr float kCharFontRatio = 0.42f;
 static constexpr float kNamedFontRatio = 0.26f;
+static constexpr float kKanaFontRatio = 0.28f;
 static constexpr size_t kMaxCharLabelLength = 2;
 static constexpr UINT kPollIntervalMs = 100;
 
@@ -418,6 +421,7 @@ void KeyboardWindow::HandleSize(int width, int height)
 	};
 	fCharFont = createFont(fontBase * kCharFontRatio);
 	fNamedFont = createFont(fontBase * kNamedFontRatio);
+	fKanaFont = createFont(fontBase * kKanaFontRatio);
 
 	InvalidateRect(fWindow, nullptr, FALSE);
 }
@@ -519,11 +523,20 @@ bool KeyboardWindow::UpdateLabels()
 	}
 	fLabelState = state;
 
+	// Whether the IME takes kana or romaji input cannot be read from another process, so
+	// Japanese layouts show both, like printed JIS keycaps.
+	const LANGID language = LOWORD(reinterpret_cast<uintptr_t>(state.layout));
+	const bool isJapanese = PRIMARYLANGID(language) == LANG_JAPANESE;
+
 	const std::vector<Key> &keys = fLayout.Keys();
 	fLabels.clear();
 	fLabels.reserve(keys.size());
+	fKanaLabels.clear();
+	fKanaLabels.reserve(keys.size());
 	for (const Key &key : keys) {
-		fLabels.push_back((key.label != nullptr) ? std::wstring(key.label) : CharacterLabel(key, state));
+		const bool isCharacter = key.label == nullptr;
+		fLabels.push_back(isCharacter ? CharacterLabel(key, state) : std::wstring(key.label));
+		fKanaLabels.push_back((isCharacter && isJapanese) ? KanaLabel(key.code, state.shift) : std::wstring());
 	}
 	return true;
 }
@@ -599,14 +612,34 @@ void KeyboardWindow::DrawKey(HDC dc, size_t key) const
 		FillRect(dc, &indicator, brush);
 	}
 
-	if (key >= fLabels.size() || fLabels[key].empty()) {
+	if (key >= fLabels.size()) {
+		return;
+	}
+	const std::wstring &label = fLabels[key];
+	const std::wstring &kanaLabel = fKanaLabels[key];
+	const int width = upper.right - upper.left;
+	const int height = upper.bottom - upper.top;
+
+	RECT labelRect = upper;
+	if (!kanaLabel.empty()) {
+		// Main caption towards the top left, kana in the bottom right corner.
+		labelRect.right -= width / 4;
+		labelRect.bottom -= height / 5;
+
+		const int padding = std::max(2, height / 10);
+		RECT kanaRect = upper;
+		InflateRect(&kanaRect, -padding, -padding);
+		SelectObjectScope fontScope(dc, fKanaFont.get());
+		DrawTextW(dc, kanaLabel.c_str(), -1, &kanaRect, DT_RIGHT | DT_BOTTOM | DT_SINGLELINE | DT_NOPREFIX);
+	}
+
+	if (label.empty()) {
 		return;
 	}
 	// Layout-provided labels can be key names too (GetKeyNameText fallback), not only characters.
-	const bool isCharacter = def.label == nullptr && fLabels[key].size() <= kMaxCharLabelLength;
+	const bool isCharacter = def.label == nullptr && label.size() <= kMaxCharLabelLength;
 	SelectObjectScope fontScope(dc, isCharacter ? fCharFont.get() : fNamedFont.get());
-	RECT textRect = upper;
-	DrawTextW(dc, fLabels[key].c_str(), -1, &textRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+	DrawTextW(dc, label.c_str(), -1, &labelRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
 }
 
 

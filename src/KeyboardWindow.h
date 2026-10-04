@@ -50,6 +50,8 @@ private:
 
 	std::optional<LabelState> fLabelState;
 	std::vector<std::wstring> fLabels;
+	// Secondary hiragana captions, shown with Japanese keyboard layouts.
+	std::vector<std::wstring> fKanaLabels;
 
 	int fClientWidth {};
 	int fClientHeight {};
@@ -58,6 +60,7 @@ private:
 	int fGap {};
 	FontRef fCharFont;
 	FontRef fNamedFont;
+	FontRef fKanaFont;
 
 	static LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam);
 	LRESULT HandleMessage(UINT message, WPARAM wParam, LPARAM lParam);

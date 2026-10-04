@@ -9,6 +9,7 @@ typed like on hardware, e.g. hold `Ctrl` with one finger and tap `C` with anothe
 - Input is sent as scan codes, so the target application's keyboard layout and IME
   interpret it exactly like a hardware keyboard.
 - Captions follow the keyboard layout of the foreground window, Shift/Caps Lock/AltGr.
+  Japanese layouts also show the kana input hiragana on each key.
 - Typematic repeat of the last pressed key, using the system delay and rate settings.
 - Pointer API (`WM_POINTER*`) for touch, pen and mouse; GDI drawing.
 - Tray icon: click toggles the keyboard, right click menu has Show/Hide and Exit.

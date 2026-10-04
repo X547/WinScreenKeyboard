@@ -28,6 +28,7 @@ executable(
 	'src/KeyboardHandler.cpp',
 	'src/KeyboardWindow.cpp',
 	'src/TrayIcon.cpp',
+	'src/KanaLayout.cpp',
 	win_subsystem: 'windows',
 	link_args: ['-municode', '-static'],
 	dependencies: [
