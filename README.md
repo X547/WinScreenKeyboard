@@ -11,6 +11,8 @@ typed like on hardware, e.g. hold `Ctrl` with one finger and tap `C` with anothe
 - Captions follow the keyboard layout of the foreground window, Shift/Caps Lock/AltGr.
 - Typematic repeat of the last pressed key, using the system delay and rate settings.
 - Pointer API (`WM_POINTER*`) for touch, pen and mouse; GDI drawing.
+- Tray icon: click toggles the keyboard, right click menu has Show/Hide and Exit.
+  The window close button only hides the keyboard.
 
 ## Build
 

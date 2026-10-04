@@ -41,6 +41,22 @@ using BitmapRef = GdiObjectRef<HBITMAP>;
 using DcRef = std::unique_ptr<std::remove_pointer_t<HDC>, DcDeleter>;
 
 
+//#pragma mark - USER resource owners
+
+struct IconDeleter {
+	void operator()(HICON icon) const {DestroyIcon(icon);}
+};
+
+struct MenuDeleter {
+	void operator()(HMENU menu) const {DestroyMenu(menu);}
+};
+
+using IconRef = std::unique_ptr<std::remove_pointer_t<HICON>, IconDeleter>;
+using MenuRef = std::unique_ptr<std::remove_pointer_t<HMENU>, MenuDeleter>;
+
+
+//#pragma mark - Scope guards
+
 class SelectObjectScope {
 private:
 	HDC fDc;

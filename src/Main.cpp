@@ -35,7 +35,7 @@ static void Run()
 	CheckThrow(EnableMouseInPointer(TRUE));
 
 	KeyboardWindow window(ParseLayoutType());
-	window.Show();
+	window.SetVisible(true);
 
 	MSG msg;
 	while (GetMessageW(&msg, nullptr, 0, 0) > 0) {

@@ -27,10 +27,12 @@ executable(
 	'src/KeyboardLayout.cpp',
 	'src/KeyboardHandler.cpp',
 	'src/KeyboardWindow.cpp',
+	'src/TrayIcon.cpp',
 	win_subsystem: 'windows',
 	link_args: ['-municode', '-static'],
 	dependencies: [
 		cpp.find_library('user32'),
 		cpp.find_library('gdi32'),
+		cpp.find_library('shell32'),
 	]
 )

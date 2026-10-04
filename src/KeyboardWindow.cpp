@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <exception>
 
+#include <shellapi.h>
 #include <windowsx.h>
 
 
@@ -112,6 +113,9 @@ KeyboardWindow::KeyboardWindow(LayoutType layoutType):
 		SetWindowFeedbackSetting(fWindow, feedback, 0, sizeof(enabled), &enabled);
 	}
 
+	fTaskbarCreatedMessage = RegisterWindowMessageW(L"TaskbarCreated");
+	fTrayIcon.emplace(fWindow, kTrayMessage);
+
 	UpdateLabels();
 	CheckThrow(SetTimer(fWindow, kPollTimerId, kPollIntervalMs, nullptr));
 }
@@ -126,10 +130,17 @@ KeyboardWindow::~KeyboardWindow()
 }
 
 
-void KeyboardWindow::Show()
+void KeyboardWindow::SetVisible(bool visible)
 {
-	ShowWindow(fWindow, SW_SHOWNOACTIVATE);
-	UpdateWindow(fWindow);
+	if (visible) {
+		ShowWindow(fWindow, SW_SHOWNOACTIVATE);
+		return;
+	}
+
+	// Keys held at the moment of hiding would otherwise stay down forever.
+	fPointers.clear();
+	fHandler->ReleaseAll();
+	ShowWindow(fWindow, SW_HIDE);
 }
 
 
@@ -219,11 +230,22 @@ LRESULT KeyboardWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam
 		case WM_PAINT:
 			HandlePaint();
 			break;
+		case kTrayMessage:
+			HandleTrayMessage(wParam, lParam);
+			break;
+		case WM_CLOSE:
+			// The application lives in the tray; it is closed from the tray menu.
+			SetVisible(false);
+			break;
 		case WM_DESTROY:
 			HandleDestroy();
 			break;
 		default:
-			handled = false;
+			if (message == fTaskbarCreatedMessage && fTrayIcon.has_value()) {
+				fTrayIcon->HandleTaskbarCreated();
+			} else {
+				handled = false;
+			}
 			break;
 	}
 
@@ -308,6 +330,55 @@ std::optional<size_t> KeyboardWindow::KeyAt(POINT pos) const
 bool KeyboardWindow::KeyContains(size_t key, POINT pos) const
 {
 	return fLayout.Keys()[key].Contains(ToUnitX(pos.x), ToUnitY(pos.y));
+}
+
+
+//#pragma mark - Tray icon
+
+void KeyboardWindow::HandleTrayMessage(WPARAM wParam, LPARAM lParam)
+{
+	switch (LOWORD(lParam)) {
+		case NIN_SELECT:
+		case NIN_KEYSELECT:
+			SetVisible(!IsVisible());
+			break;
+		case WM_CONTEXTMENU:
+			ShowTrayMenu({GET_X_LPARAM(wParam), GET_Y_LPARAM(wParam)});
+			break;
+		default:
+			break;
+	}
+}
+
+
+void KeyboardWindow::ShowTrayMenu(POINT pos)
+{
+	MenuRef menu(CheckThrow(CreatePopupMenu()));
+	CheckThrow(AppendMenuW(menu.get(), MF_STRING, kMenuToggle, IsVisible() ? L"Hide" : L"Show"));
+	CheckThrow(AppendMenuW(menu.get(), MF_SEPARATOR, 0, nullptr));
+	CheckThrow(AppendMenuW(menu.get(), MF_STRING, kMenuExit, L"Exit"));
+
+	// Without being foreground the menu does not close when clicking elsewhere.
+	SetForegroundWindow(fWindow);
+	const UINT command = static_cast<UINT>(TrackPopupMenuEx(
+		menu.get(),
+		TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON,
+		pos.x, pos.y,
+		fWindow,
+		nullptr
+	));
+	PostMessageW(fWindow, WM_NULL, 0, 0);
+
+	switch (command) {
+		case kMenuToggle:
+			SetVisible(!IsVisible());
+			break;
+		case kMenuExit:
+			DestroyWindow(fWindow);
+			break;
+		default:
+			break;
+	}
 }
 
 
@@ -542,6 +613,7 @@ void KeyboardWindow::DrawKey(HDC dc, size_t key) const
 void KeyboardWindow::HandleDestroy()
 {
 	KillTimer(fWindow, kPollTimerId);
+	fTrayIcon.reset();
 	fPointers.clear();
 	fHandler->ReleaseAll();
 	PostQuitMessage(0);

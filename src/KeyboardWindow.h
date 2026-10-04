@@ -12,6 +12,7 @@
 
 #include "KeyboardHandler.h"
 #include "KeyboardLayout.h"
+#include "TrayIcon.h"
 #include "Win32Utils.h"
 
 
@@ -36,11 +37,16 @@ private:
 	};
 
 	static constexpr UINT_PTR kPollTimerId = 2;
+	static constexpr UINT kTrayMessage = WM_APP + 1;
+	static constexpr UINT kMenuToggle = 1;
+	static constexpr UINT kMenuExit = 2;
 
 	KeyboardLayout fLayout;
 	HWND fWindow = nullptr;
 	std::optional<KeyboardHandler> fHandler;
 	std::map<UINT32, PointerTrack> fPointers;
+	std::optional<TrayIcon> fTrayIcon;
+	UINT fTaskbarCreatedMessage {};
 
 	std::optional<LabelState> fLabelState;
 	std::vector<std::wstring> fLabels;
@@ -59,6 +65,8 @@ private:
 	void HandlePointerDown(WPARAM wParam, LPARAM lParam);
 	void HandlePointerUpdate(WPARAM wParam, LPARAM lParam);
 	void HandlePointerUp(WPARAM wParam);
+	void HandleTrayMessage(WPARAM wParam, LPARAM lParam);
+	void ShowTrayMenu(POINT pos);
 	void HandleSize(int width, int height);
 	void HandlePaint();
 	void HandleDestroy();
@@ -85,5 +93,6 @@ public:
 	KeyboardWindow(const KeyboardWindow &other) = delete;
 	KeyboardWindow &operator=(const KeyboardWindow &other) = delete;
 
-	void Show();
+	bool IsVisible() const {return IsWindowVisible(fWindow) != FALSE;}
+	void SetVisible(bool visible);
 };
